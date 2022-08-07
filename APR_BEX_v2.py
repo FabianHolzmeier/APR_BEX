@@ -11,7 +11,7 @@ from matplotlib.offsetbox import AnchoredText
 
 path = "C:\\Users\\holzme33\\OneDrive - imec\\misc\\project_BEX\\"
 
-year = 2022
+year = 2021
 # raw data
 d = np.loadtxt(path+str(year)+"_raw_data.txt", dtype=str,delimiter='\t')
 
@@ -74,7 +74,7 @@ for i in range(len(d_1)):
     MAD[i] = np.mean(abs(model[i,t_ev]-d_2[i,1:-1]))
     MAPE[i] = np.mean((abs(model[i,t_ev]-d_2[i,1:-1]))/d_2[i,1:-1])*100
     
-#%% produce and save the figuers
+#%% produce and save figures for each athlete
     
 for n in range(len(d_1)):
 # for n in range(5):
@@ -84,8 +84,9 @@ for n in range(len(d_1)):
     ax.set_title(d[n+1,1]+' '+str(year)+'\n'+r"R={:.2f}$\pm${:.2f}".format(r[n],conf_int[n]))
     
     # text box with results of linear regression
-    ax.text(200,1000,'R = {:.2f}'.format(r[n])+'\n'+r'R$^2$ = {:.2f}'.format(r2[n])+'\n'+'SEE = {:.2f}'.format(std_err[n])+'\n'
-            +'MAD = {:.0f} W'.format(MAD[n])+'\n'+'MAPE = {:.1f} %'.format(MAPE[n]))
+    txt = AnchoredText('R = {:.2f}'.format(r[n])+'\n'+r'R$^2$ = {:.2f}'.format(r2[n])+'\n'+'SEE = {:.2f}'.format(std_err[n])+'\n'
+            +'MAD = {:.0f} W'.format(MAD[n])+'\n'+'MAPE = {:.1f} %'.format(MAPE[n]),loc='center')
+    ax.add_artist(txt)
     ax.set_xlim([0,370])
     ax.set_ylim([200,1800])
     ax.set_xlabel("Time (s)")
@@ -93,14 +94,36 @@ for n in range(len(d_1)):
     ax.legend()
     plt.savefig(path+'figures//Athlete'+str(n+1)+'_'+str(year)+'.png')
 
+#%% overview of R, MAD, MAPE
+
+fig,ax = plt.subplots()
+ax.errorbar(np.arange(1,len(d_1)+1),r,yerr = conf_int,color='k',linestyle='',marker='o',capsize=5)
+lns1 = ax.plot(np.arange(1,len(d_1)+1),r,'ko',label="R")
+lns2 = ax.plot([1,len(d_1)+1],[np.mean(r),np.mean(r)],'r-',label="mean of R")
+ax.set_xlabel("Athlete No.")
+ax.set_ylabel("Correlation Coefficient R")
+
+ax.set_ylim([0.2,1.6])
+
+ax2 = ax.twinx()
+lns3 = ax2.plot(np.arange(1,len(d_1)+1),MAPE,'b^',label="MAPE")
+lns4 = ax2.plot([1,len(d_1)+1],[np.mean(MAPE),np.mean(MAPE)],'b--',label="mean of MAPE")
+ax2.set_ylabel("MAPE (%)")
+ax2.set_ylim([0,50])
+
+ax.set_title(str(year)+r": R = {:.2f}$\pm${:.2f}, MAPE = {:.1f}$\pm${:.1f} %".format(np.mean(r),np.std(r),np.mean(MAPE),np.std(MAPE)))
+
+lns = lns1+lns2+lns3+lns4
+labs = [l.get_label() for l in lns]
+ax.legend(lns, labs, loc=0)
 #%% all athletes together
 
 real_all = np.zeros((7*len(d_1)))
 model_all = np.zeros((7*len(d_1)))
 
 for i in range(len(d_1)):
-    real_all[i*len(t):(i+1)*len(t)] = d_2[i,1:-1]
-    model_all[i*len(t):(i+1)*len(t)] = model[i,t_ev]
+    real_all[i*len(t_ev):(i+1)*len(t_ev)] = d_2[i,1:-1]
+    model_all[i*len(t_ev):(i+1)*len(t_ev)] = model[i,t_ev]
 
 slope, intercept, r_value, p_value, std_err_all = stats.linregress(real_all,model_all)
 r_all = r_value
@@ -120,6 +143,53 @@ ax.add_artist(txt)
 ax.set_xlabel("Actual Power (W)")
 ax.set_ylabel("Predicted Power (W)")
 ax.set_title(str(year)+r": R = {:.2f}$\pm${:.2f}".format(r_all,conf_int_all))
+
+#%% filter on athletes
+
+filt = 'sprinter'       # filter options: male, female, sprinter, nsprinter
+
+if filt=='male':
+    idx = np.where(d[:,3]=='male')[0]
+    title = 'all male athletes '
+elif filt == 'female':
+    idx = np.where(d[:,3]=='female')[0]
+    title = 'all female athletes '
+elif filt == 'sprinter':
+    idx = np.where(d_1[:,0]/d_1[:,8]>2.73)[0]   # sprinters have P_mechmax/P_aer > 2.73
+    idx = idx+1
+    title = 'sprinters '
+elif filt == 'nsprinter':
+    idx = np.where(d_1[:,0]/d_1[:,8]<2.73)[0]   
+    idx = idx+1
+    title = 'non-sprinters '
+else:
+    print("option not available")
+    
+real_filt = np.zeros((7*len(idx)))
+model_filt = np.zeros((7*len(idx)))
+
+for i in range(len(idx)):
+    real_filt[i*len(t_ev):(i+1)*len(t_ev)] = d_2[idx[i]-1,1:-1]
+    model_filt[i*len(t_ev):(i+1)*len(t_ev)] = model[idx[i]-1,t_ev]
+
+slope, intercept, r_value, p_value, std_err_filt = stats.linregress(real_filt,model_filt)
+r_filt = r_value
+lim = 90
+conf_int_filt = stats.norm.ppf(1-(1-lim/100)/2)*std_err_filt
+MAD_filt = np.mean(abs(real_filt-model_filt))
+MAPE_filt = np.mean(abs(real_filt-model_filt)/real_filt)*100
+
+x = np.arange(200,1700)
+
+fig,ax = plt.subplots()
+ax.plot(real_filt,model_filt,'ko')
+ax.plot(x,slope*x+intercept,'r')
+txt = AnchoredText('R = {:.2f}'.format(r_filt)+'\n'+r'R$^2$ = {:.2f}'.format(r_filt**2)+'\n'+'SEE = {:.2f}'.format(std_err_filt)+'\n'
+        +'MAD = {:.0f} W'.format(MAD_filt)+'\n'+'MAPE = {:.1f} %'.format(MAPE_filt),loc=2)
+ax.add_artist(txt)
+ax.set_xlabel("Actual Power (W)")
+ax.set_ylabel("Predicted Power (W)")
+ax.set_title(title+str(year)+'\n'+r"R = {:.2f}$\pm${:.2f}".format(r_filt,conf_int_filt))
 
 #%% correlation coefficient for each duration
 
