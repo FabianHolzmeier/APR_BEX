@@ -45,10 +45,10 @@ def CI(r,n,lim):
     # get z for alpha/2 for confidence limit in %
     z = stats.norm.ppf(1-(1-lim/100)/2)
     zr = np.log((1+r)/(1-r))/2      # Fisher transform
-    L = zr-(1.96/np.sqrt(n-3))    # lower bounds
-    U = zr+(1.96/np.sqrt(n-3))    # upper bounds
+    L = zr-(z/np.sqrt(n-3))    # lower bounds
+    U = zr+(z/np.sqrt(n-3))    # upper bounds
     return [(np.exp(2*L)-1)/(np.exp(2*L)+1),(np.exp(2*U)-1)/(np.exp(2*U)+1)]
-    
+  
 
 
 # calculate the model
@@ -65,9 +65,16 @@ for i in range(len(d_1)):
     slope, intercept, r_value, p_value, see = stats.linregress(d_2[i,1:-1],model[i,t_ev])
     r[i] = r_value      # correlation coefficient R
     r2[i] = r_value**2  # R^2
-    std_err[i] = see    # standard error of the estimate
+    # std_err[i] = see    # standard error of the estimated SLOPE 
+    
+    # standard error of the estimate in W
+    std_err[i] = np.sqrt(np.sum((model[i,t_ev]-d_2[i,1:-1])**2)/len(t_ev))
+    
     # confidence interval
     lim = 90       # percentile of confidence interval
+    
+    ci = CI(r[i],len(t_ev),lim)     # calculate uper and lower confidence limits for R
+    print(r[i],ci-r[i],np.sqrt ((1-r[i]**2)/(len(t_ev)-2)))
     conf_int[i] = stats.norm.ppf(1-(1-lim/100)/2)*std_err[i]    # the factor (1.648) is in fact defined for large datasets (normal distribution), but it seems that it is used like this in Sanders2016
     
     # mean absolute deviation and mean absolute percentage error
@@ -84,7 +91,7 @@ for n in range(len(d_1)):
     ax.set_title(d[n+1,1]+' '+str(year)+'\n'+r"R={:.2f}$\pm${:.2f}".format(r[n],conf_int[n]))
     
     # text box with results of linear regression
-    txt = AnchoredText('R = {:.2f}'.format(r[n])+'\n'+r'R$^2$ = {:.2f}'.format(r2[n])+'\n'+'SEE = {:.2f}'.format(std_err[n])+'\n'
+    txt = AnchoredText('R = {:.2f}'.format(r[n])+'\n'+r'R$^2$ = {:.2f}'.format(r2[n])+'\n'+'SEE = {:.2f} W'.format(std_err[n])+'\n'
             +'MAD = {:.0f} W'.format(MAD[n])+'\n'+'MAPE = {:.1f} %'.format(MAPE[n]),loc='center')
     ax.add_artist(txt)
     ax.set_xlim([0,370])
