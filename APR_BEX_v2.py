@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from matplotlib.offsetbox import AnchoredText
 
-path = "C:\\Users\\Fabian\\OneDrive - imec\\misc\\project_BEX\\"
+path = "C:\\Users\\holzme33\\OneDrive - imec\\misc\\project_BEX\\"
 
 year = 2021
 # raw data
@@ -34,7 +34,8 @@ std_err = np.zeros((len(d_1),))
 conf_int = np.zeros((len(d_1)))
 MAD = np.zeros((len(d_1)))
 MAPE = np.zeros((len(d_1)))
-
+slopes = np.zeros((len(d_1)))
+intercepts = np.zeros((len(d_1)))
 
 # equation (1) from Weyand2006
 def eq1_Weyand(P_aer,P_mechmax,k):
@@ -66,6 +67,9 @@ for i in range(len(d_1)):
     r[i] = r_value      # correlation coefficient R
     r2[i] = r_value**2  # R^2
     # std_err[i] = see    # standard error of the estimated SLOPE 
+    
+    slopes[i] = slope
+    intercepts[i] = intercept
     
     # standard error of the estimate in Watt
     std_err[i] = np.sqrt(np.sum((model[i,t_ev]-d_2[i,1:-1])**2)/len(t_ev))
@@ -103,6 +107,23 @@ for n in range(len(d_1)):
     ax.set_ylabel("Power (w)")
     ax.legend()
     plt.savefig(path+'figures//Athlete'+str(n+1)+'_'+str(year)+'.png')
+    
+    # linear plots
+    x = np.arange(300,1700)
+    fig2,ax2 = plt.subplots()
+    ax2.plot(d_2[n,1:-1],model[n,t_ev],'ko',label='data')
+    ax2.plot([300,1700],[300,1700],'k--',label='y=x')
+    ax2.plot(x,slopes[n]*x+intercepts[n],'r',label='m*x+t')
+    ax2.set_title(d[n+1,1]+' '+str(year)+'\n'+r"R={:.2f}$\pm${:.2f}".format(r[n],conf_int[n]))
+    # text box with results of linear regression
+    txt = AnchoredText('R = {:.2f}'.format(r[n])+'\n'+r'R$^2$ = {:.2f}'.format(r2[n])+'\n'+'SEE = {:.1f} W'.format(std_err[n])+'\n'
+            +'MAD = {:.1f} W'.format(MAD[n])+'\n'+'MAPE = {:.1f} %'.format(MAPE[n]),loc='lower right')
+    ax2.add_artist(txt)
+    ax2.set_xlabel("Actual Power (W)")
+    ax2.set_ylabel("Predicted Power (W)")
+    ax2.legend()
+    plt.savefig(path+'figures//Athlete'+str(n+1)+'_'+str(year)+'_linear.png')
+    
 
 #%% overview of R, MAPE
 
@@ -151,6 +172,7 @@ x = np.arange(200,1700)
 fig,ax = plt.subplots()
 ax.plot(real_all,model_all,'ko')
 ax.plot(x,slope*x+intercept,'r')
+ax.plot(x,x,'k--')
 txt = AnchoredText('R = {:.2f}'.format(r_all)+'\n'+r'R$^2$ = {:.2f}'.format(r_all**2)+'\n'+'SEE = {:.1f} W'.format(std_err_all)+'\n'
         +'MAD = {:.1f} W'.format(MAD_all)+'\n'+'MAPE = {:.1f} %'.format(MAPE_all),loc=2)
 ax.add_artist(txt)
